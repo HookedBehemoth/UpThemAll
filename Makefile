@@ -42,6 +42,8 @@ BUILD		:=	build
 SOURCES		:=	source
 DATA		:=	data
 INCLUDES	:=	include
+APP_AUTHOR	:=	HookedBehemoth
+APP_VERSION	:=	1.0.0
 #ROMFS	:=	romfs
 
 #---------------------------------------------------------------------------------
