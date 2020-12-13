@@ -17,51 +17,50 @@
 #include <cstdio>
 #include <cstring>
 
+#include "scope_guard.hpp"
+#include "hos_except.hpp"
+#include <stdexcept>
+
 int main() {
     consoleInit(nullptr);
 
     PadState pad;
-    padConfigureInput(8, HidNpadStyleTag_NpadHandheld);
+    padConfigureInput(8, HidNpadStyleSet_NpadStandard);
     padInitializeAny(&pad);
-    hidSetNpadHandheldActivationMode(HidNpadHandheldActivationMode_Single);
 
-    /* Initiate Services. */
-    nsInitialize();
-    nifmInitialize(NifmServiceType_System);
+    try {
+        /* Initialize Nintendo Shell. */
+        R_THROW(nsInitialize());
+        auto ns_guard = scope_exit(nsExit);
 
-    /* Make network request. */
-    NifmRequest request;
-    if (R_SUCCEEDED(nifmCreateRequest(&request, true))) {
-        nifmRequestSubmitAndWait(&request);
-        
+        /* Initialize Network Interface Manager. */
+        R_THROW(nifmInitialize(NifmServiceType_System));
+        auto nifm_guard = scope_exit(nifmExit);
+
+        /* Request network connection. */
+        NifmRequest request;
+        R_THROW(nifmCreateRequest(&request, true));
+        auto req_guard = scope_exit([&] { nifmRequestClose(&request); });
+
+        /* Submit request. */
+        R_THROW(nifmRequestSubmitAndWait(&request));
+
         /* Confirm network availability. */
-        if (nifmIsAnyInternetRequestAccepted(nifmGetClientId())) {
-            try {
-                printf("Receiving version list.\n");
-                consoleUpdate(nullptr);
-                const auto version_list = VersionList();
-                
-                printf("Updating Applciations\n");
-                consoleUpdate(nullptr);
-                version_list.UpdateApplications();
-            } catch (std::exception &e) {
-                printf("Failed to load version list: %s\n", e.what());
-            }
-        } else {
-            printf("Network connectivity couldn't be established.\nAborting!\n");
-        }
-        
-        /* Close network request. */
-        nifmRequestClose(&request);
-    } else {
-        printf("Failed to make a network request.\nAborting!\n");
+        if (!nifmIsAnyInternetRequestAccepted(nifmGetClientId()))
+            throw std::runtime_error("Network connectivity couldn't be established.");
+
+        /* Load Version list. */
+        const auto version_list = VersionList();
+
+        /* Request update for outdated titles. */
+        const auto updated = version_list.UpdateApplications();
+
+        printf("Updated %u Applications!\n", updated);
+    } catch (std::exception &e) {
+        printf("%s\n", e.what());
     }
 
-    /* Exit services. */
-    nifmExit();
-    nsExit();
-
-    printf("Done!\nPress + to exit.\n");
+    printf("Press + to exit.\n");
     consoleUpdate(nullptr);
 
     while (appletMainLoop()) {

@@ -2,29 +2,37 @@
 
 #include <cstring>
 
-Result nsRequestVersionList() {
+static Result _nsVersionNoInNoOut(u32 cmd_id) {
     Result rc=0;
     Service srv={};
     rc = nsGetApplicationVersionInterface(&srv);
 
-    if (R_SUCCEEDED(rc)) rc = serviceDispatch(&srv, 800);
+    if (R_SUCCEEDED(rc)) rc = serviceDispatch(&srv, cmd_id);
     
     serviceClose(&srv);
     return rc;
 }
 
-Result nsListVersionList(AvmVersionListEntry *buffer, size_t count, u32 *out) {
+static Result _nsVersionNoInBufOut(u32 cmd_id, void* buffer, size_t size, u32 *out) {
     Result rc=0;
     Service srv={};
     rc = nsGetApplicationVersionInterface(&srv);
 
-    if (R_SUCCEEDED(rc)) rc = serviceDispatchOut(&srv, 801, *out,
+    if (R_SUCCEEDED(rc)) rc = serviceDispatchOut(&srv, cmd_id, *out,
         .buffer_attrs = { SfBufferAttr_HipcMapAlias | SfBufferAttr_Out },
-        .buffers = { { buffer, count * sizeof(*buffer) } },
+        .buffers = { { buffer, size } },
     );
 
     serviceClose(&srv);
     return rc;
+}
+
+Result nsRequestVersionList() {
+    return _nsVersionNoInNoOut(800);
+}
+
+Result nsListVersionList(AvmVersionListEntry *buffer, size_t count, u32 *out) {
+    return _nsVersionNoInBufOut(801, buffer, count * sizeof(*buffer), out);
 }
 
 Result nsRequestVersionListData(AsyncValue *a) {
@@ -47,4 +55,12 @@ Result nsRequestVersionListData(AsyncValue *a) {
 
     serviceClose(&srv);
     return rc;
+}
+
+Result nsPerformAutoUpdate(void) {
+    return _nsVersionNoInNoOut(1000);
+}
+
+Result nsListAutoUpdateSchedule(void* unk, size_t size, u32 *out) {
+    return _nsVersionNoInBufOut(1001, unk, size, out);
 }

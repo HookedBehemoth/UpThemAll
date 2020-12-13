@@ -21,21 +21,28 @@
 #include "simdjson.h"
 
 VersionList::VersionList() {
+    impl.resize(0x4000);
+    u32 count=0;
+    R_THROW(nsListVersionList(impl.data(), impl.size(), &count));
+    impl.resize(count);
+}
+
+void VersionList::FetchFromCDN() {
     /* Request version list. */
     AsyncValue async;
-    R_TRY(nsRequestVersionListData(&async));
+    R_THROW(nsRequestVersionListData(&async));
     scope_exit async_guard([&] { asyncValueClose(&async); });
 
     /* Wait for finish. */
-    R_TRY(asyncValueWait(&async, UINT64_MAX));
+    R_THROW(asyncValueWait(&async, UINT64_MAX));
 
     /* Get version list length. */
     u64 size=0;
-    R_TRY(asyncValueGetSize(&async, &size));
-    
+    R_THROW(asyncValueGetSize(&async, &size));
+
     /* Allocate buffer and read version list. */
     auto json_buffer = std::make_unique<char[]>(size);
-    R_TRY(asyncValueGet(&async, json_buffer.get(), size));
+    R_THROW(asyncValueGet(&async, json_buffer.get(), size));
 
     /* Parse result as JSON data. */
     auto parser = simdjson::dom::parser();
@@ -46,8 +53,8 @@ VersionList::VersionList() {
         throw std::runtime_error("Unknown Version!\n");
 
     auto array = list["titles"].get_array();
-    auto buffer = std::vector<AvmVersionListEntry>(array.size());
-    auto ptr    = buffer.data();
+    impl.resize(array.size());
+    auto ptr = impl.data();
     for (const auto &title : array) {
         const std::string_view id_string = title["id"];
         const uint64_t version = title["version"];
@@ -58,8 +65,6 @@ VersionList::VersionList() {
             .required = static_cast<uint32_t>(required),
         };
     }
-
-    impl = buffer;
 }
 
 /* Get installed version. 0 if no patch is installed. */
@@ -95,13 +100,15 @@ const char* VersionList::GetApplicationName(u64 app_id) const noexcept {
     return entry->name;
 }
 
-void VersionList::UpdateApplications() const noexcept {
+u32 VersionList::UpdateApplications() const noexcept {
+    u32 updated_count=0;
+
     /* Iterate over installed applications. */
     s32 offset=0, count=0;
     NsApplicationRecord record;
     while (R_SUCCEEDED(nsListApplicationRecord(&record, 1, offset++, &count)) && count != 0) {
         /* Skip archived applications. */
-        if (record.type == 0xb)
+        if (record.type == 0xb || record.type == 0x4)
             continue;
 
         const u64 app_id = record.application_id;
@@ -120,10 +127,14 @@ void VersionList::UpdateApplications() const noexcept {
             const Result rc = asyncResultGet(&async);
             if (R_FAILED(rc)) {
                 printf(" Update failed: 0x%x\n", rc);
+            } else {
+                updated_count++;
             }
             asyncResultClose(&async);
         } else {
             printf(" Update in progress\n");
         }
     }
+
+    return updated_count;
 }

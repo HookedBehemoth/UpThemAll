@@ -17,6 +17,8 @@
 
 #include "avm.h"
 
+using ApplicationId = u64;
+
 class VersionList {
   private:
     std::vector<AvmVersionListEntry> impl;
@@ -24,8 +26,10 @@ class VersionList {
   public:
     VersionList();
 
+    void FetchFromCDN();
+
     u32 GetInstalledVersion(u64 application_id) const noexcept;
     u32 GetAvailableVersion(u64 application_id) const noexcept;
     const char* GetApplicationName(u64 app_id) const noexcept;
-    void UpdateApplications() const noexcept;
+    u32 UpdateApplications() const noexcept;
 };

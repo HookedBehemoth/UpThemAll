@@ -12,20 +12,31 @@
  * THE SOFTWARE.
  */
 #include <cstdio>
+#include <string>
 #include <exception>
 #include <switch.h>
 
 struct hos_exception : public std::exception {
-    char rc_buff[0x25];
+    char buffer[0x100];
     hos_exception(Result rc) noexcept {
-        std::sprintf(rc_buff, "Result: 2%03u-%04u / 0x%x\n", R_MODULE(rc), R_DESCRIPTION(rc), R_VALUE(rc));
+        std::sprintf(buffer, "Result: 2%03u-%04u / 0x%x\n", R_MODULE(rc), R_DESCRIPTION(rc), R_VALUE(rc));
     }
-    const char* what() const noexcept { return rc_buff; }
+    hos_exception(const char* desc, Result rc) noexcept {
+        std::sprintf(buffer, "%s: Result: 2%03u-%04u / 0x%x\n", desc, R_MODULE(rc), R_DESCRIPTION(rc), R_VALUE(rc));
+    }
+    const char* what() const noexcept { return buffer; }
 };
 
-#define R_TRY(expr)              \
-({                               \
-    const auto rc = (expr);      \
-    if (R_FAILED(rc))            \
-        throw hos_exception(rc); \
+#define R_THROW(expr)              \
+({                                 \
+    const auto rc = (expr);        \
+    if (R_FAILED(rc)) [[unlikely]] \
+        throw hos_exception(rc);   \
+})
+
+#define R_THROW_DESC(expr, desc)       \
+({                                     \
+    const auto rc = (expr);            \
+    if (R_FAILED(rc)) [[unlikely]]     \
+        throw hos_exception(desc, rc); \
 })
