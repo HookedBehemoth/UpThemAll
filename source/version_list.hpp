@@ -36,7 +36,6 @@ class VersionList {
     VersionList();
 
     void Refresh();
-    void FetchFromCDN();
 
     u32 GetInstalledVersion(ApplicationId application_id) const noexcept;
     u32 GetAvailableVersion(ApplicationId application_id) const noexcept;
