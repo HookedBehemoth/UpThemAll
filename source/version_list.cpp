@@ -16,9 +16,6 @@
 
 #include "version_list.hpp"
 
-#include <switch.h>
-
-#include <imgui.h>
 #include "gfx.hpp"
 #include <stb_image.h>
 
@@ -84,50 +81,50 @@ const u8* VersionList::GetThumbnail(ApplicationId application_id) const noexcept
     return nacp.icon;
 }
 
-void VersionList::UpdateSynchronous(ApplicationId application_id) const noexcept {
+bool VersionList::UpdateSynchronous(ApplicationId application_id) const noexcept {
+    this->log.appendf("Updating: [%016lX]: %s\n", application_id, GetApplicationName(application_id));
+
     /* Request update. */
     AsyncResult async;
     Result rc = nsRequestUpdateApplication2(&async, application_id);
     if (R_SUCCEEDED(rc)) {
         /* Wait for result. */
-        const Result rc = asyncResultGet(&async);
-        if (R_FAILED(rc)) {
-            printf(" Update failed: 0x%x\n", rc);
-        }
+        rc = asyncResultGet(&async);
         asyncResultClose(&async);
-    } else {
-        printf(" Update in progress\n");
-        printf("0x%x\n", rc);
     }
+
+    if (R_FAILED(rc))
+        this->log.appendf("Update failed: 0x%x\n", rc);
+
+    return R_SUCCEEDED(rc);
 }
 
 void VersionList::UpdateAllApplications() noexcept {
     for (const auto &[application_id, pair]: this->available) {
         UpdateSynchronous(application_id);
     }
+
     this->available.clear();
+    this->selected = 0;
 }
 
 void VersionList::List(bool has_internet) noexcept {
     static DkResHandle handle = 0;
 
-    // Left
-    static ApplicationId selected = 0;
-    {
-        ImGui::BeginChild("left pane", ImVec2(750, 0), true);
+    if (ImGui::BeginChild("left pane", ImVec2{750.f, 400.f}, true)) {
         for (const auto &[application_id, pair]: this->available) {
             const auto &[name, required] = pair;
             if (required)
-                ImGui::PushStyleColor(ImGuiCol_Text, {0.94f, 0.33f, 0.31f, 1.f});
-            if (ImGui::Selectable(name.c_str(), selected == application_id)) {
-                if (selected != application_id) {
+                ImGui::PushStyleColor(ImGuiCol_Text, ImVec4{0.94f, 0.33f, 0.31f, 1.f});
+            if (ImGui::Selectable(name.c_str(), this->selected == application_id)) {
+                if (this->selected != application_id) {
                     auto jpeg = GetThumbnail(application_id);
                     /* Decode image to */
                     int w,h;
                     auto data = stbi_load_from_memory(jpeg, 0x20000, &w, &h, nullptr, 4);
                     handle = fz::gfx::create_texture(data, w, h, 1, 1);
                     free(data);
-                    selected = application_id;
+                    this->selected = application_id;
                 }
             }
             if (required)
@@ -137,36 +134,47 @@ void VersionList::List(bool has_internet) noexcept {
     }
     ImGui::SameLine();
 
-    // Right
-    if (selected != 0) {
-        if (!this->available.contains(selected))
-            selected = 0;
-
-        auto &[name, required] = this->available.at(selected);
-
+    {
         ImGui::BeginGroup();
-        ImGui::BeginChild("item view", ImVec2(0, -ImGui::GetFrameHeightWithSpacing())); // Leave room for 1 line below us
-        ImGui::Text(name.c_str());
-        ImGui::Separator();
-        if (handle != 0)
-            ImGui::Image(reinterpret_cast<void *>(static_cast<std::uintptr_t>(handle)), { 256, 256 });
-        ImGui::EndChild();
+        if (this->selected != 0) {
+            if (!this->available.contains(this->selected))
+                this->selected = 0;
 
-        if (has_internet && ImGui::Button("Update")) {
-            printf("Updating: [%016lX]: %s\n", selected, GetApplicationName(selected));
+            auto &[name, required] = this->available.at(this->selected);
 
-            UpdateSynchronous(selected);
+            ImGui::BeginChild("item view", ImVec2{0.f, 400.f - ImGui::GetFrameHeightWithSpacing()});
+            ImGui::Text(name.c_str());
+            ImGui::Separator();
+            if (handle != 0) {
+                static auto ImageSize = ImVec2{256.f, 256.f};
+                ImGui::SetCursorPos((ImGui::GetWindowSize() - ImageSize) * 0.5f);
+                ImGui::Image(reinterpret_cast<void *>(static_cast<std::uintptr_t>(handle)), ImageSize);
+            }
+            ImGui::EndChild();
 
-            this->available.erase(selected);
-            selected = 0;
+            if (has_internet && ImGui::Button("Update")) {
+                if (UpdateSynchronous(this->selected)) {
+                    this->available.erase(this->selected);
+                    this->selected = 0;
+                }
+            }
+            
+            if (has_internet && required)
+                ImGui::SameLine();
+
+            if (required && ImGui::Button("Reset Launch Version")) {
+                this->log.appendf("Resetting launch required version for %s [%016lX]", name.c_str(), this->selected);
+                avmPushLaunchVersion(this->selected, 0);
+                required = false;
+            }
         }
-        ImGui::SameLine();
 
-        if (required && ImGui::Button("Remove")) {
-            avmPushLaunchVersion(selected, 0);
-            required = false;
-        }
         ImGui::EndGroup();
+    }
+
+    if (ImGui::BeginChild("Log", ImVec2{0.f, 0.f}, true)) {
+        ImGui::TextUnformatted(this->log.begin(), this->log.end());
+        ImGui::EndChild();
     }
 }
 
@@ -183,6 +191,7 @@ void VersionList::Nuke() noexcept {
 
 void VersionList::UpdateAvailable() {
     this->available.clear();
+    this->selected = 0;
 
     /* Iterate over installed applications. */
     s32 offset=0, count=0;
@@ -204,8 +213,8 @@ void VersionList::UpdateAvailable() {
 
         const auto app_name = GetApplicationName(application_id);
 
-        std::printf("Adding: %s\n", app_name);
-        
+        this->log.appendf("Adding: %s, installed: %d, available: %d\n", app_name, installed, available);
+
         this->available[application_id] = { app_name, required > installed };
     }
 }

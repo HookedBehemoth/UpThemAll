@@ -72,8 +72,10 @@ int main() {
     u32 wifiStrength=0;
     NifmInternetConnectionStatus connectionStatus;
 
-    std::atomic_bool has_internet = R_SUCCEEDED(nifmGetInternetConnectionStatus(&contype, &wifiStrength, &connectionStatus));
-    std::atomic_bool join = false;
+    bool has_internet = R_SUCCEEDED(nifmGetInternetConnectionStatus(&contype, &wifiStrength, &connectionStatus));
+    bool net_warn = !has_internet;
+    bool join = false;
+
     auto status_thread = std::thread([&] {
         /* Make network request. */
         NifmRequest request;
@@ -82,21 +84,24 @@ int main() {
         /* Submit request. */
         nifmRequestSubmitAndWait(&request);
 
+        bool previous = has_internet;
+
         do {
             /* Confirm network availability. */
             has_internet = R_SUCCEEDED(nifmGetInternetConnectionStatus(&contype, &wifiStrength, &connectionStatus));
+            if (previous != has_internet) {
+                net_warn = !has_internet;
+                previous = has_internet;
+            }
         } while (svcSleepThread(100'000'000), !join);
 
         nifmRequestClose(&request);
     });
 
-    bool net_warn = !has_internet;
-    bool nuke_warn = false;
-
     while (fz::gfx::loop()) {
         ImGui::SetNextWindowPos(ImVec2{40.f, 22.5f}, ImGuiCond_FirstUseEver);
-        ImGui::SetNextWindowSize(ImVec2(1200, 675), ImGuiCond_FirstUseEver);
-        if (ImGui::Begin("UpThemAll", nullptr, ImGuiWindowFlags_NoCollapse | ImGuiWindowFlags_NoMove | ImGuiWindowFlags_NoResize)) {
+        ImGui::SetNextWindowSize(ImVec2{1200.f, 675.f}, ImGuiCond_FirstUseEver);
+        if (ImGui::Begin("UpThemAll", nullptr, ImGuiWindowFlags_NoCollapse | ImGuiWindowFlags_NoMove | ImGuiWindowFlags_NoResize | ImGuiWindowFlags_NoBringToFrontOnFocus)) {
             if (ImGui::Button("Update them all")) {
                 version_list.UpdateAllApplications();
             }
@@ -113,12 +118,12 @@ int main() {
             ImGui::End();
         }
 
-        ImGui::SetNextWindowPos(ImVec2{400.f, 300.f}, ImGuiCond_FirstUseEver);
-        ImGui::SetNextWindowSize(ImVec2(480.f, 120.f), ImGuiCond_FirstUseEver);
+        ImGui::SetNextWindowPos(ImVec2{400.f, 280.f}, ImGuiCond_FirstUseEver);
+        ImGui::SetNextWindowSize(ImVec2{480.f, 160.f}, ImGuiCond_FirstUseEver);
         if (net_warn && ImGui::Begin("No Internet", &net_warn, ImGuiWindowFlags_NoCollapse | ImGuiWindowFlags_NoMove | ImGuiWindowFlags_NoResize)) {
-            ImGui::Text("No internet connection available.");
-            // if (R_FAILED(rc))
-            //     ImGui::Text("Result code: 2%03X-%04X, (0x%x)", R_MODULE(rc), R_DESCRIPTION(rc), R_VALUE(rc));
+            ImGui::Text("No internet connection available.\n\nUpdate functionality disabled.");
+            if (ImGui::Button("Ok"))
+                net_warn = false;
             ImGui::End();
         }
 

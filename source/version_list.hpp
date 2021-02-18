@@ -17,6 +17,7 @@
 #pragma once
 
 #include <switch.h>
+#include <imgui.h>
 
 #include <string>
 #include <unordered_map>
@@ -28,6 +29,8 @@ class VersionList {
   private:
     std::vector<AvmVersionListEntry> impl;
     std::unordered_map<ApplicationId, std::pair<std::string, bool>> available;
+    ApplicationId selected = 0;
+    mutable ImGuiTextBuffer log;
 
   public:
     VersionList();
@@ -40,7 +43,7 @@ class VersionList {
     u32 GetLaunchRequiredVersion(ApplicationId application_id) const noexcept;
     const char* GetApplicationName(ApplicationId application_id) const noexcept;
     const u8* GetThumbnail(ApplicationId application_id) const noexcept;
-    void UpdateSynchronous(ApplicationId application_id) const noexcept;
+    bool UpdateSynchronous(ApplicationId application_id) const noexcept;
     void UpdateAllApplications() noexcept;
     
     void List(bool has_internet) noexcept;
