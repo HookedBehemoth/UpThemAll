@@ -17,61 +17,131 @@
 #include <cstdio>
 #include <cstring>
 
-#include "scope_guard.hpp"
-#include "hos_except.hpp"
 #include <stdexcept>
 
+#include "gfx.hpp"
+#include <imgui.h>
+
+#ifdef DEBUG
+#include <unistd.h>
+static int nxlink = -1;
+#endif
+
+extern "C" void userAppInit() {
+#ifdef DEBUG
+    socketInitializeDefault();
+    nxlink = nxlinkStdio();
+#endif
+    appletLockExit();
+
+    /* Initialize Network Interface Manager. */
+    nifmInitialize(NifmServiceType_System);
+    plInitialize(PlServiceType_User);
+    nsInitialize();
+    avmInitialize();
+
+    romfsInit();
+    hidInitializeTouchScreen();
+}
+
+extern "C" void userAppExit(void) {
+#ifdef DEBUG
+    ::close(nxlink);
+    socketExit();
+#endif
+    romfsExit();
+
+    avmExit();
+    nsExit();
+    plExit();
+    nifmExit();
+
+    appletUnlockExit();
+}
+
 int main() {
-    consoleInit(nullptr);
+    auto version_list = VersionList();
 
-    PadState pad;
-    padConfigureInput(8, HidNpadStyleSet_NpadStandard);
-    padInitializeAny(&pad);
+    NifmInternetConnectionType contype;
+    u32 wifiStrength=0;
+    NifmInternetConnectionStatus connectionStatus;
 
-    try {
-        /* Initialize Nintendo Shell. */
-        R_THROW(nsInitialize());
-        auto ns_guard = scope_exit(nsExit);
-
-        /* Initialize Network Interface Manager. */
-        R_THROW(nifmInitialize(NifmServiceType_System));
-        auto nifm_guard = scope_exit(nifmExit);
-
-        /* Request network connection. */
+    std::atomic_bool has_internet = R_SUCCEEDED(nifmGetInternetConnectionStatus(&contype, &wifiStrength, &connectionStatus));
+    std::atomic_bool join = false;
+    auto status_thread = std::thread([&] {
+        /* Make network request. */
         NifmRequest request;
-        R_THROW(nifmCreateRequest(&request, true));
-        auto req_guard = scope_exit([&] { nifmRequestClose(&request); });
+        nifmCreateRequest(&request, true);
 
         /* Submit request. */
-        R_THROW(nifmRequestSubmitAndWait(&request));
+        nifmRequestSubmitAndWait(&request);
 
-        /* Confirm network availability. */
-        if (!nifmIsAnyInternetRequestAccepted(nifmGetClientId()))
-            throw std::runtime_error("Network connectivity couldn't be established.");
+        do {
+            /* Confirm network availability. */
+            has_internet = R_SUCCEEDED(nifmGetInternetConnectionStatus(&contype, &wifiStrength, &connectionStatus));
+        } while (svcSleepThread(100'000'000), !join);
 
-        /* Load Version list. */
-        const auto version_list = VersionList();
+        nifmRequestClose(&request);
+    });
 
-        /* Request update for outdated titles. */
-        const auto updated = version_list.UpdateApplications();
+    bool net_warn = !has_internet;
+    bool nuke_warn = false;
 
-        printf("Updated %u Applications!\n", updated);
-    } catch (std::exception &e) {
-        printf("%s\n", e.what());
+    if (!fz::gfx::init())
+        return EXIT_FAILURE;
+
+    while (fz::gfx::loop()) {
+        ImGui::SetNextWindowPos(ImVec2{40.f, 22.5f}, ImGuiCond_FirstUseEver);
+        ImGui::SetNextWindowSize(ImVec2(1200, 675), ImGuiCond_FirstUseEver);
+        if (ImGui::Begin("UpThemAll", nullptr, ImGuiWindowFlags_NoCollapse | ImGuiWindowFlags_NoMove | ImGuiWindowFlags_NoResize)) {
+            if (ImGui::Button("Update them all")) {
+                version_list.UpdateAllApplications();
+            }
+            ImGui::SameLine();
+            if (ImGui::Button("Refresh List")) {
+                std::printf("refreshing\n");
+                version_list.Refresh();
+            }
+            ImGui::SameLine();
+            if (ImGui::Button("Clear Version List")) {
+                nuke_warn = true;
+            }
+
+            version_list.List(has_internet);
+            ImGui::End();
+        }
+
+        ImGui::SetNextWindowPos(ImVec2{400.f, 300.f}, ImGuiCond_FirstUseEver);
+        ImGui::SetNextWindowSize(ImVec2(480.f, 120.f), ImGuiCond_FirstUseEver);
+        if (net_warn && ImGui::Begin("No Internet", &net_warn, ImGuiWindowFlags_NoCollapse | ImGuiWindowFlags_NoMove | ImGuiWindowFlags_NoResize)) {
+            ImGui::Text("No internet connection available.");
+            // if (R_FAILED(rc))
+            //     ImGui::Text("Result code: 2%03X-%04X, (0x%x)", R_MODULE(rc), R_DESCRIPTION(rc), R_VALUE(rc));
+            ImGui::End();
+        }
+
+        ImGui::SetNextWindowPos(ImVec2{300.f, 250.f}, ImGuiCond_FirstUseEver);
+        ImGui::SetNextWindowSize(ImVec2(680.f, 220.f), ImGuiCond_FirstUseEver);
+        if (nuke_warn && ImGui::Begin("Clear Warning", &nuke_warn, ImGuiWindowFlags_NoCollapse | ImGuiWindowFlags_NoMove | ImGuiWindowFlags_NoResize)) {
+            ImGui::Text("List can be reinstated by official background processes.\n\nDo you really want to proceed?");
+            if (ImGui::Button("Ok")) {
+                version_list.Nuke();
+                nuke_warn = false;
+            }
+            ImGui::SameLine();
+            if (ImGui::Button("Cancel")) {
+                nuke_warn = false;
+            }
+            ImGui::End();
+        }
+
+        fz::gfx::render();
     }
 
-    printf("Press + to exit.\n");
-    consoleUpdate(nullptr);
+    fz::gfx::exit();
 
-    while (appletMainLoop()) {
-        padUpdate(&pad);
-        u64 kDown = padGetButtonsDown(&pad);
+    join = true;
+    status_thread.join();
 
-        if (kDown & KEY_PLUS)
-            break;
-    }
-
-    consoleExit(nullptr);
-
-    return 0;
+    return EXIT_SUCCESS;
 }

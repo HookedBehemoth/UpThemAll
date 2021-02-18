@@ -1,0 +1,7 @@
+*.elf
+*.nacp
+*.nro
+build
+romfs
+lib
+.vscode

@@ -7,8 +7,6 @@
 #pragma once
 #include <switch.h>
 
-#include "avm.h"
-
 typedef enum {
     NsApplicationRecordType_Running         = 0x0,
     NsApplicationRecordType_Installed       = 0x3,

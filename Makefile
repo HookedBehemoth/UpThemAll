@@ -44,13 +44,16 @@ DATA		:=	data
 INCLUDES	:=	include
 APP_AUTHOR	:=	HookedBehemoth
 APP_VERSION	:=	1.0.0
-#ROMFS	:=	romfs
+ROMFS		:=	romfs
+
+USR_DEFINES	:=	#DEBUG
 
 #---------------------------------------------------------------------------------
 # options for code generation
 #---------------------------------------------------------------------------------
 ARCH	:=	-march=armv8-a+crc+crypto -mtune=cortex-a57 -mtp=soft -fPIE
 
+DEFINES	:=	$(foreach def,$(USR_DEFINES),-D$(def))
 CFLAGS	:=	-g -Wall -O2 -ffunction-sections \
 			$(ARCH) $(DEFINES)
 
@@ -61,14 +64,13 @@ CXXFLAGS	:= $(CFLAGS) -fno-rtti -std=c++20
 ASFLAGS	:=	-g $(ARCH)
 LDFLAGS	=	-specs=$(DEVKITPRO)/libnx/switch.specs -g $(ARCH) -Wl,-Map,$(notdir $*.map)
 
-LIBS	:= -lnx
+LIBS	:=	-limgui-nx -limgui -lstbi -ldeko3d -lnx
 
 #---------------------------------------------------------------------------------
 # list of directories containing libraries, this must be the top level containing
 # include and lib
 #---------------------------------------------------------------------------------
-LIBDIRS	:= $(PORTLIBS) $(LIBNX)
-
+LIBDIRS	:=	$(PORTLIBS) $(LIBNX) $(TOPDIR)/libs/imgui-nx $(TOPDIR)/libs/imgui $(TOPDIR)/libs/stb_image
 
 #---------------------------------------------------------------------------------
 # no real need to edit anything past this point unless you need to add additional
@@ -162,7 +164,11 @@ endif
 #---------------------------------------------------------------------------------
 all: $(BUILD)
 
-$(BUILD):
+shaders:
+	@mkdir -p $(ROMFS)
+	$(shell find libs/imgui-nx/lib/ -type f -name '*.dksh' -exec cp -u {} $(ROMFS) \;)
+
+$(BUILD): shaders
 	@[ -d $@ ] || mkdir -p $@
 	@$(MAKE) --no-print-directory -C $(BUILD) -f $(CURDIR)/Makefile
 

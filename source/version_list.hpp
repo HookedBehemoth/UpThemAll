@@ -13,23 +13,36 @@
  */
 #pragma once
 
-#include <vector>
+#include <switch.h>
 
-#include "avm.h"
+#include <string>
+#include <unordered_map>
+#include <vector>
 
 using ApplicationId = u64;
 
 class VersionList {
   private:
     std::vector<AvmVersionListEntry> impl;
+    std::unordered_map<ApplicationId, std::pair<std::string, bool>> available;
 
   public:
     VersionList();
 
+    void Refresh();
     void FetchFromCDN();
 
-    u32 GetInstalledVersion(u64 application_id) const noexcept;
-    u32 GetAvailableVersion(u64 application_id) const noexcept;
-    const char* GetApplicationName(u64 app_id) const noexcept;
-    u32 UpdateApplications() const noexcept;
+    u32 GetInstalledVersion(ApplicationId application_id) const noexcept;
+    u32 GetAvailableVersion(ApplicationId application_id) const noexcept;
+    u32 GetLaunchRequiredVersion(ApplicationId application_id) const noexcept;
+    const char* GetApplicationName(ApplicationId application_id) const noexcept;
+    const u8* GetThumbnail(ApplicationId application_id) const noexcept;
+    void UpdateSynchronous(ApplicationId application_id) const noexcept;
+    void UpdateAllApplications() noexcept;
+    
+    void List(bool has_internet) noexcept;
+    void Nuke() noexcept;
+
+  private:
+    void UpdateAvailable();
 };
