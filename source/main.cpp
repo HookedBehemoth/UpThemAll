@@ -1,16 +1,19 @@
-/**
- * Copyright (c) 2020 Luis Scheurenbrand
- * 
- * All Rights Reserved
- * 
- * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
- * IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
- * FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
- * AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
- * LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
- * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
- * THE SOFTWARE.
+/*
+ * Copyright (c) 2021 Luis Scheurenbrand
+ *
+ * This program is free software; you can redistribute it and/or modify it
+ * under the terms and conditions of the GNU General Public License,
+ * version 2, as published by the Free Software Foundation.
+ *
+ * This program is distributed in the hope it will be useful, but WITHOUT
+ * ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
+ * FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License for
+ * more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
+
 #include "version_list.hpp"
 
 #include <switch.h>
@@ -60,6 +63,9 @@ extern "C" void userAppExit(void) {
 }
 
 int main() {
+    if (!fz::gfx::init())
+        return EXIT_FAILURE;
+
     auto version_list = VersionList();
 
     NifmInternetConnectionType contype;
@@ -87,9 +93,6 @@ int main() {
     bool net_warn = !has_internet;
     bool nuke_warn = false;
 
-    if (!fz::gfx::init())
-        return EXIT_FAILURE;
-
     while (fz::gfx::loop()) {
         ImGui::SetNextWindowPos(ImVec2{40.f, 22.5f}, ImGuiCond_FirstUseEver);
         ImGui::SetNextWindowSize(ImVec2(1200, 675), ImGuiCond_FirstUseEver);
@@ -99,12 +102,11 @@ int main() {
             }
             ImGui::SameLine();
             if (ImGui::Button("Refresh List")) {
-                std::printf("refreshing\n");
                 version_list.Refresh();
             }
             ImGui::SameLine();
             if (ImGui::Button("Clear Version List")) {
-                nuke_warn = true;
+                version_list.Nuke();
             }
 
             version_list.List(has_internet);
@@ -117,21 +119,6 @@ int main() {
             ImGui::Text("No internet connection available.");
             // if (R_FAILED(rc))
             //     ImGui::Text("Result code: 2%03X-%04X, (0x%x)", R_MODULE(rc), R_DESCRIPTION(rc), R_VALUE(rc));
-            ImGui::End();
-        }
-
-        ImGui::SetNextWindowPos(ImVec2{300.f, 250.f}, ImGuiCond_FirstUseEver);
-        ImGui::SetNextWindowSize(ImVec2(680.f, 220.f), ImGuiCond_FirstUseEver);
-        if (nuke_warn && ImGui::Begin("Clear Warning", &nuke_warn, ImGuiWindowFlags_NoCollapse | ImGuiWindowFlags_NoMove | ImGuiWindowFlags_NoResize)) {
-            ImGui::Text("List can be reinstated by official background processes.\n\nDo you really want to proceed?");
-            if (ImGui::Button("Ok")) {
-                version_list.Nuke();
-                nuke_warn = false;
-            }
-            ImGui::SameLine();
-            if (ImGui::Button("Cancel")) {
-                nuke_warn = false;
-            }
             ImGui::End();
         }
 
