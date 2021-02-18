@@ -60,7 +60,7 @@ u32 VersionList::GetAvailableVersion(ApplicationId application_id) const noexcep
 
 u32 VersionList::GetLaunchRequiredVersion(ApplicationId application_id) const noexcept {
     u32 version = 0;
-    if (R_FAILED(avmGetLaunchRequiredVersion(application_id, &version)))
+    if (R_FAILED(nsGetLaunchRequiredVersion(application_id, &version)))
         return 0;
     return version;
 }
@@ -164,7 +164,7 @@ void VersionList::List(bool has_internet) noexcept {
 
             if (required && ImGui::Button("Reset Launch Version")) {
                 this->log.appendf("Resetting launch required version for %s [%016lX]", name.c_str(), this->selected);
-                avmPushLaunchVersion(this->selected, 0);
+                nsPushLaunchVersion(this->selected, 0);
                 required = false;
             }
         }

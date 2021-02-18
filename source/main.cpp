@@ -41,7 +41,8 @@ extern "C" void userAppInit() {
     nifmInitialize(NifmServiceType_System);
     plInitialize(PlServiceType_User);
     nsInitialize();
-    avmInitialize();
+    if (hosversionAtLeast(6,0,0))
+        avmInitialize();
 
     romfsInit();
     hidInitializeTouchScreen();
@@ -54,7 +55,8 @@ extern "C" void userAppExit(void) {
 #endif
     romfsExit();
 
-    avmExit();
+    if (hosversionAtLeast(6,0,0))
+        avmExit();
     nsExit();
     plExit();
     nifmExit();
@@ -72,6 +74,8 @@ int main() {
     u32 wifiStrength=0;
     NifmInternetConnectionStatus connectionStatus;
 
+    bool has_avm = hosversionAtLeast(6,0,0);
+    bool avm_warn = !has_avm;
     bool has_internet = R_SUCCEEDED(nifmGetInternetConnectionStatus(&contype, &wifiStrength, &connectionStatus));
     bool net_warn = !has_internet;
     bool join = false;
@@ -102,15 +106,16 @@ int main() {
         ImGui::SetNextWindowPos(ImVec2{40.f, 22.5f}, ImGuiCond_FirstUseEver);
         ImGui::SetNextWindowSize(ImVec2{1200.f, 675.f}, ImGuiCond_FirstUseEver);
         if (ImGui::Begin("UpThemAll", nullptr, ImGuiWindowFlags_NoCollapse | ImGuiWindowFlags_NoMove | ImGuiWindowFlags_NoResize | ImGuiWindowFlags_NoBringToFrontOnFocus)) {
-            if (ImGui::Button("Update them all")) {
+            if (has_internet && ImGui::Button("Update them all")) {
                 version_list.UpdateAllApplications();
             }
-            ImGui::SameLine();
+            if (has_internet) {
+                ImGui::SameLine();
+            }
             if (ImGui::Button("Refresh List")) {
                 version_list.Refresh();
             }
-            ImGui::SameLine();
-            if (ImGui::Button("Clear Version List")) {
+            if (has_avm && (ImGui::SameLine(), ImGui::Button("Clear Version List"))) {
                 version_list.Nuke();
             }
 
@@ -124,6 +129,15 @@ int main() {
             ImGui::Text("No internet connection available.\n\nUpdate functionality disabled.");
             if (ImGui::Button("Ok"))
                 net_warn = false;
+            ImGui::End();
+        }
+
+        ImGui::SetNextWindowPos(ImVec2{350.f, 280.f}, ImGuiCond_FirstUseEver);
+        ImGui::SetNextWindowSize(ImVec2{580.f, 160.f}, ImGuiCond_FirstUseEver);
+        if (avm_warn && ImGui::Begin("<6.0.0", &avm_warn, ImGuiWindowFlags_NoCollapse | ImGuiWindowFlags_NoMove | ImGuiWindowFlags_NoResize)) {
+            ImGui::Text("On this firmware version the Application Version Manager isn't available.\n\nClearing the update nag isn't possible.");
+            if (ImGui::Button("Ok"))
+                avm_warn = false;
             ImGui::End();
         }
 

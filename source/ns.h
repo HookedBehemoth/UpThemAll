@@ -18,6 +18,12 @@ typedef enum {
     NsApplicationRecordType_AlreadyStarted  = 0x10,
 } NsApplicationRecordType;
 
+/// IApplicationVersionInterface
+Result nsGetLaunchRequiredVersion(u64 application_id, u32 *version);
+Result nsUpgradeLaunchRequiredVersion(u64 application_id, u32 version);
+Result nsUpdateVersionList(AvmVersionListEntry *buffer, size_t count);
+Result nsPushLaunchVersion(u64 application_id, u32 version);
+Result nsListRequiredVersion(AvmRequiredVersionEntry *buffer, size_t count, u32 *out);
 Result nsRequestVersionList(void);
 Result nsListVersionList(AvmVersionListEntry *buffer, size_t count, u32 *out);
 Result nsRequestVersionListData(AsyncValue *a);
