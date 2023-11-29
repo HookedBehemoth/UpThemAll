@@ -103,8 +103,12 @@ int main() {
     });
 
     while (fz::gfx::loop()) {
-        ImGui::SetNextWindowPos(ImVec2{40.f, 22.5f}, ImGuiCond_FirstUseEver);
-        ImGui::SetNextWindowSize(ImVec2{1200.f, 675.f}, ImGuiCond_FirstUseEver);
+        auto [width, height] = ImGui::GetIO().DisplaySize;
+        auto factor = width / 1280.0f;
+
+        ImGui::SetNextWindowPos(ImVec2{40.f, 22.5f} * factor, ImGuiCond_Always);
+        ImGui::SetNextWindowSize(ImVec2{1200.f, 675.f} * factor, ImGuiCond_Always);
+
         if (ImGui::Begin("UpThemAll", nullptr, ImGuiWindowFlags_NoCollapse | ImGuiWindowFlags_NoMove | ImGuiWindowFlags_NoResize | ImGuiWindowFlags_NoBringToFrontOnFocus)) {
             if (has_internet && ImGui::Button("Update them all")) {
                 version_list.UpdateAllApplications();
@@ -123,8 +127,8 @@ int main() {
             ImGui::End();
         }
 
-        ImGui::SetNextWindowPos(ImVec2{400.f, 280.f}, ImGuiCond_FirstUseEver);
-        ImGui::SetNextWindowSize(ImVec2{480.f, 160.f}, ImGuiCond_FirstUseEver);
+        ImGui::SetNextWindowPos(ImVec2{400.f, 280.f} * factor, ImGuiCond_FirstUseEver);
+        ImGui::SetNextWindowSize(ImVec2{480.f, 160.f} * factor, ImGuiCond_FirstUseEver);
         if (net_warn && ImGui::Begin("No Internet", &net_warn, ImGuiWindowFlags_NoCollapse | ImGuiWindowFlags_NoMove | ImGuiWindowFlags_NoResize)) {
             ImGui::Text("No internet connection available.\n\nUpdate functionality disabled.");
             if (ImGui::Button("Ok"))
@@ -132,8 +136,8 @@ int main() {
             ImGui::End();
         }
 
-        ImGui::SetNextWindowPos(ImVec2{350.f, 280.f}, ImGuiCond_FirstUseEver);
-        ImGui::SetNextWindowSize(ImVec2{580.f, 160.f}, ImGuiCond_FirstUseEver);
+        ImGui::SetNextWindowPos(ImVec2{350.f, 280.f} * factor, ImGuiCond_FirstUseEver);
+        ImGui::SetNextWindowSize(ImVec2{580.f, 160.f} * factor, ImGuiCond_FirstUseEver);
         if (avm_warn && ImGui::Begin("<6.0.0", &avm_warn, ImGuiWindowFlags_NoCollapse | ImGuiWindowFlags_NoMove | ImGuiWindowFlags_NoResize)) {
             ImGui::Text("On this firmware version the Application Version Manager isn't available.\n\nClearing the update nag isn't possible.");
             if (ImGui::Button("Ok"))
