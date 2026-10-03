@@ -166,7 +166,7 @@ all: $(BUILD)
 
 shaders:
 	@mkdir -p $(ROMFS)
-	$(shell find libs/imgui-nx/lib/ -type f -name '*.dksh' -exec cp -u {} $(ROMFS) \;)
+	@find libs/imgui-nx/lib/ -type f -name '*.dksh' -exec cp -u {} $(ROMFS) \;
 
 $(BUILD): shaders
 	@[ -d $@ ] || mkdir -p $@
