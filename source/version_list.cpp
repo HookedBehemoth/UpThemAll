@@ -200,7 +200,7 @@ void VersionList::UpdateAvailable() {
     NsApplicationRecord record;
     while (R_SUCCEEDED(nsListApplicationRecord(&record, 1, offset++, &count)) && count != 0) {
         /* Skip archived and downloading applications. */
-        if (record.type == NsApplicationRecordType_Archived || record.type == NsApplicationRecordType_Downloading)
+        if (record.last_event == NsApplicationRecordType_Archived || record.last_event == NsApplicationRecordType_Downloading)
             continue;
 
         const u64 application_id = record.application_id;
