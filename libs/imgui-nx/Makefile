@@ -16,7 +16,7 @@ DEFINES           =    __SWITCH__
 ARCH              =    -march=armv8-a+crc+crypto+simd -mtune=cortex-a57 -mtp=soft -fpie
 FLAGS             =    -Wall -pipe -g -O2 -ffunction-sections -fdata-sections
 CFLAGS            =    -std=gnu11
-CXXFLAGS          =    -std=gnu++17
+CXXFLAGS          =    -std=gnu++20
 ASFLAGS           =
 ARFLAGS           =    -rc
 
